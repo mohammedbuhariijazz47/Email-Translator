@@ -52,6 +52,9 @@ export default function Home() {
   const [replyText, setReplyText] = useState('')
   const [replyLoading, setReplyLoading] = useState(false)
   const [sentReplies, setSentReplies] = useState({})
+  const [draftingReply, setDraftingReply] = useState(false)
+  const [checkingGrammar, setCheckingGrammar] = useState(false)
+  const [checkingComposeGrammar, setCheckingComposeGrammar] = useState(false)
 
   useEffect(() => {
     async function fetchEmails() {
@@ -151,12 +154,46 @@ export default function Home() {
       setComposeBody('')
       alert('Email Translated and Sent successfully!')
       
-      // Optionally switch to sent category
       setCategory('sent')
     } catch (e) {
       alert(`Error: ${e.message}`)
     }
     setComposeLoading(false)
+  }
+
+  async function handleAutoDraft(email) {
+    setDraftingReply(true)
+    try {
+      const res = await fetch('/api/ai/draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emailBody: email.body, lang: prefLang }),
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      setReplyText(data.draft)
+    } catch (e) {
+      alert(`Auto-draft Error: ${e.message}`)
+    }
+    setDraftingReply(false)
+  }
+
+  async function handleGrammarCheck(text, setter, loadingSetter) {
+    if (!text.trim()) return
+    loadingSetter(true)
+    try {
+      const res = await fetch('/api/ai/grammar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      setter(data.corrected)
+    } catch (e) {
+      alert(`Grammar check error: ${e.message}`)
+    }
+    loadingSetter(false)
   }
 
   if (status === 'loading') {
@@ -175,7 +212,7 @@ export default function Home() {
           <span className="text-gray-500 ml-2 text-3xl">· AI Translator</span>
         </div>
         <p className="text-gray-500 mb-8 max-w-md text-center leading-relaxed">
-          Sign in securely with your Google account to automatically fetch your inbox emails and reply in any language flawlessly.
+          Sign in securely with your Google account to automatically fetch emails and utilize Gemini AI for grammar and drafting.
         </p>
         <button 
           onClick={() => signIn('google')} 
@@ -244,12 +281,12 @@ export default function Home() {
             >
               Compose
             </button>
-            <div className="flex gap-1 overflow-x-auto pb-1 no-scrollbar text-xs">
-              {['inbox', 'draft', 'sent', 'snoozed'].map(c => (
+            <div className="flex flex-wrap gap-1 pb-1 text-xs mt-2 overflow-y-auto max-h-32">
+              {['inbox', 'important', 'social', 'updates', 'draft', 'sent', 'outbox', 'snoozed', 'spam', 'bin'].map(c => (
                 <button 
                   key={c}
                   onClick={() => { setCategory(c); setComposing(false); setSelected(null); }}
-                  className={`px-3 py-1.5 rounded-md capitalize whitespace-nowrap transition-colors flex-1 ${category === c && !composing ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-gray-100'}`}
+                  className={`px-3 py-1.5 rounded-md capitalize transition-colors ${category === c && !composing ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-200' : 'text-gray-600 hover:bg-gray-100 border border-transparent'}`}
                 >
                   {c}
                 </button>
@@ -332,23 +369,30 @@ export default function Home() {
                 <textarea
                   value={composeBody}
                   onChange={e => setComposeBody(e.target.value)}
-                  className="w-full flex-1 p-0 mt-4 text-sm text-gray-800 resize-none focus:outline-none h-64"
+                  className="w-full flex-1 p-0 mt-4 text-sm text-gray-800 resize-none focus:outline-none min-h-[250px]"
                   placeholder="Type your message here..."
                 ></textarea>
                 
-                <div className="mt-auto pt-4 flex gap-3 pb-6">
+                <div className="mt-4 pt-4 flex items-center pb-6 border-t border-gray-100">
+                  <button
+                    onClick={() => handleGrammarCheck(composeBody, setComposeBody, setCheckingComposeGrammar)}
+                    disabled={checkingComposeGrammar || !composeBody.trim()}
+                    className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md shadow-sm font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors flex items-center gap-2 text-sm mr-auto"
+                  >
+                    {checkingComposeGrammar ? <Spinner /> : '✨ Check Grammar'}
+                  </button>
+                  <button
+                    onClick={() => setComposing(false)}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm font-medium transition-colors mr-3"
+                  >
+                    Discard
+                  </button>
                   <button
                     onClick={handleSendCompose}
                     disabled={composeLoading || !composeTo.trim() || !composeBody.trim()}
                     className="px-6 py-2 bg-blue-600 text-white rounded-md shadow-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center gap-2 text-sm"
                   >
                     {composeLoading ? <><Spinner /> Sending...</> : 'Send & Translate'}
-                  </button>
-                  <button
-                    onClick={() => setComposing(false)}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm font-medium transition-colors"
-                  >
-                    Discard
                   </button>
                 </div>
               </div>
@@ -412,7 +456,7 @@ export default function Home() {
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mt-8">
                 <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-200">
                   <span className="text-xs font-bold text-gray-600 uppercase tracking-widest">
-                    Quick Reply Generator
+                    AI Reply Generator
                   </span>
                   {sentReplies[selected.id] && (
                     <span className="text-xs text-green-600 font-bold tracking-wide flex items-center gap-1">
@@ -437,24 +481,41 @@ export default function Home() {
                     <textarea
                       value={replyText}
                       onChange={e => setReplyText(e.target.value)}
-                      placeholder={`Draft your reply in ${prefLang}. It will be automatically translated to the recipient's detected language and sent...`}
+                      placeholder={`Write a reply, or click '✨ AI Draft' to let Gemini write it. You can check grammar before sending.`}
                       className="w-full p-5 text-sm text-gray-800 resize-none focus:outline-none min-h-[140px]"
                     />
-                    <div className="px-5 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-end gap-3">
+                    <div className="px-5 py-3 bg-gray-50 border-t border-gray-200 flex flex-wrap items-center gap-3">
                       <button
-                        onClick={() => setReplyText('')}
-                        className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
-                        disabled={replyLoading}
+                        onClick={() => handleAutoDraft(selected)}
+                        className="px-4 py-2 text-sm font-medium text-blue-700 bg-white border border-blue-200 rounded-md shadow-sm hover:bg-blue-50 transition-colors flex items-center gap-1"
+                        disabled={draftingReply}
                       >
-                        Clear
+                        {draftingReply ? <Spinner /> : '✨ AI Draft'}
                       </button>
                       <button
-                        onClick={() => handleSendReply(selected)}
-                        disabled={!replyText.trim() || replyLoading}
-                        className="flex items-center gap-2 px-6 py-2 bg-gray-900 text-white rounded-md shadow flex-shrink-0 text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                        onClick={() => handleGrammarCheck(replyText, setReplyText, setCheckingGrammar)}
+                        className="px-4 py-2 text-sm font-medium text-purple-700 bg-white border border-purple-200 rounded-md shadow-sm hover:bg-purple-50 transition-colors flex items-center gap-1"
+                        disabled={checkingGrammar || !replyText.trim()}
                       >
-                        {replyLoading ? <><Spinner /> Sending safely...</> : 'Send Auto-Translated'}
+                       {checkingGrammar ? <Spinner /> : '🔍 Check Grammar'}
                       </button>
+
+                      <div className="ml-auto flex items-center gap-2">
+                        <button
+                          onClick={() => setReplyText('')}
+                          className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+                          disabled={replyLoading}
+                        >
+                          Clear
+                        </button>
+                        <button
+                          onClick={() => handleSendReply(selected)}
+                          disabled={!replyText.trim() || replyLoading}
+                          className="flex items-center gap-2 px-6 py-2 bg-gray-900 text-white rounded-md shadow flex-shrink-0 text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                        >
+                          {replyLoading ? <><Spinner /> Sending safely...</> : 'Send Auto-Translated'}
+                        </button>
+                      </div>
                     </div>
                   </>
                 )}

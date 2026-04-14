@@ -36,6 +36,15 @@ export default function Home() {
   const [loadingEmails, setLoadingEmails] = useState(false)
   const [emailsError, setEmailsError] = useState(null)
   
+  // Folders and Compose State
+  const [category, setCategory] = useState('inbox')
+  const [composing, setComposing] = useState(false)
+  const [composeTo, setComposeTo] = useState('')
+  const [composeSubject, setComposeSubject] = useState('')
+  const [composeBody, setComposeBody] = useState('')
+  const [composeLang, setComposeLang] = useState('English')
+  const [composeLoading, setComposeLoading] = useState(false)
+
   const [selected, setSelected] = useState(null)
   const [prefLang, setPrefLang] = useState('English')
   const [translations, setTranslations] = useState({})
@@ -51,7 +60,7 @@ export default function Home() {
       setLoadingEmails(true)
       setEmailsError(null)
       try {
-        const res = await fetch('/api/emails?max=20', {
+        const res = await fetch(`/api/emails?max=20&category=${category}`, {
           headers: {
             'Authorization': `Bearer ${session.accessToken}`
           }
@@ -66,7 +75,7 @@ export default function Home() {
       setLoadingEmails(false)
     }
     fetchEmails()
-  }, [status, session])
+  }, [status, session, category])
 
   async function handleTranslate(email) {
     if (translations[email.id]) return
@@ -117,6 +126,39 @@ export default function Home() {
     setReplyLoading(false)
   }
 
+  async function handleSendCompose() {
+    if (!composeTo.trim() || !composeBody.trim() || !session?.accessToken) return
+    setComposeLoading(true)
+    try {
+      const res = await fetch('/api/reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          replyText: composeBody, 
+          recipientLang: composeLang, // Target recipient language
+          to: composeTo,
+          subject: composeSubject,
+          accessToken: session.accessToken,
+          sendAfterTranslate: true
+        }),
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      
+      setComposing(false)
+      setComposeTo('')
+      setComposeSubject('')
+      setComposeBody('')
+      alert('Email Translated and Sent successfully!')
+      
+      // Optionally switch to sent category
+      setCategory('sent')
+    } catch (e) {
+      alert(`Error: ${e.message}`)
+    }
+    setComposeLoading(false)
+  }
+
   if (status === 'loading') {
     return <div className="flex h-screen items-center justify-center bg-gray-50"><Spinner /></div>
   }
@@ -163,7 +205,7 @@ export default function Home() {
             <span className="text-sm font-medium text-gray-700">{session?.user?.name}</span>
           </div>
           <div className="flex items-center gap-2 border-l border-gray-200 pl-4">
-            <label className="text-sm text-gray-500 hidden sm:inline">Translate to:</label>
+            <label className="text-sm text-gray-500 hidden sm:inline">Translate Received to:</label>
             <select
               value={prefLang}
               onChange={e => setPrefLang(e.target.value)}
@@ -177,6 +219,12 @@ export default function Home() {
             </select>
           </div>
           <button 
+            onClick={() => signIn('google', { prompt: 'select_account' })}
+            className="text-sm text-gray-500 hover:text-gray-800 border border-gray-200 px-3 py-1 rounded-md"
+          >
+            Switch Account
+          </button>
+          <button 
             onClick={() => signOut()}
             className="text-sm text-gray-500 hover:text-gray-800 border border-gray-200 px-3 py-1 rounded-md"
           >
@@ -188,47 +236,125 @@ export default function Home() {
       {/* Body */}
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <div className="w-64 md:w-80 bg-white border-r border-gray-200 overflow-y-auto gmail-sidebar flex-shrink-0">
-          <div className="p-3 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white shadow-sm z-10">
-            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Inbox</div>
+        <div className="w-64 md:w-80 bg-white border-r border-gray-200 overflow-hidden flex flex-col flex-shrink-0">
+          <div className="p-4 border-b border-gray-100 flex flex-col gap-3">
+            <button 
+              onClick={() => { setComposing(true); setSelected(null); }}
+              className="w-full py-2.5 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2"
+            >
+              Compose
+            </button>
+            <div className="flex gap-1 overflow-x-auto pb-1 no-scrollbar text-xs">
+              {['inbox', 'draft', 'sent', 'snoozed'].map(c => (
+                <button 
+                  key={c}
+                  onClick={() => { setCategory(c); setComposing(false); setSelected(null); }}
+                  className={`px-3 py-1.5 rounded-md capitalize whitespace-nowrap transition-colors flex-1 ${category === c && !composing ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-gray-100'}`}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          <div className="p-3 border-b border-gray-100 flex items-center justify-between shadow-sm z-10 bg-white">
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{category}</div>
             {loadingEmails && <Spinner />}
           </div>
-          {emailsError && (
-            <div className="p-4 text-xs text-red-500 bg-red-50 border-b border-red-100">
-              {emailsError}
-            </div>
-          )}
-          {emails.length === 0 && !loadingEmails && !emailsError && (
-            <div className="p-6 text-sm text-gray-400 text-center">Your inbox is empty.</div>
-          )}
-          {emails.map(email => (
-            <button
-              key={email.id}
-              onClick={() => { setSelected(email); setReplyText('') }}
-              className={`w-full text-left px-3 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors ${selected?.id === email.id ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''}`}
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <Avatar from={email.from} size={28} />
-                <span className="text-sm font-medium text-gray-800 truncate" title={email.from}>
-                  {email.from.split('<')[0].trim() || 'Unknown'}
-                </span>
+          
+          <div className="overflow-y-auto flex-1 pb-4">
+            {emailsError && (
+              <div className="p-4 text-xs text-red-500 bg-red-50 border-b border-red-100">
+                {emailsError}
               </div>
-              <div className="text-sm font-medium text-gray-700 truncate">{email.subject}</div>
-              <div className="text-xs text-gray-400 truncate mt-0.5">{email.snippet}</div>
-            </button>
-          ))}
+            )}
+            {emails.length === 0 && !loadingEmails && !emailsError && (
+              <div className="p-6 text-sm text-gray-400 text-center">No emails found in {category}.</div>
+            )}
+            {emails.map(email => (
+              <button
+                key={email.id}
+                onClick={() => { setSelected(email); setComposing(false); setReplyText('') }}
+                className={`w-full text-left px-3 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors ${selected?.id === email.id && !composing ? 'bg-blue-50 border-l-4 border-l-blue-500' : 'border-l-4 border-l-transparent'}`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Avatar from={email.from} size={28} />
+                  <span className="text-sm font-medium text-gray-800 truncate" title={email.from}>
+                    {email.from.split('<')[0].trim() || 'Unknown'}
+                  </span>
+                </div>
+                <div className="text-sm font-medium text-gray-700 truncate">{email.subject}</div>
+                <div className="text-xs text-gray-400 truncate mt-0.5">{email.snippet}</div>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Main content */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-white relative">
-          {!selected ? (
+          {!selected && !composing ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
               <div className="text-5xl">✉️</div>
-              <div className="text-lg font-medium text-gray-500">Select an email to read and translate</div>
+              <div className="text-lg font-medium text-gray-500">Select an email to read or translate</div>
               <div className="text-sm">Click an email from the sidebar</div>
             </div>
+          ) : composing ? (
+            <div className="max-w-3xl mx-auto h-full flex flex-col">
+              <h1 className="text-2xl font-light text-gray-800 mb-6 border-b border-gray-200 pb-4">New Message</h1>
+              
+              <div className="flex flex-col gap-4 flex-1">
+                <div className="flex border-b border-gray-100 pb-2 items-center">
+                  <span className="text-sm text-gray-500 w-20">To</span>
+                  <input type="email" value={composeTo} onChange={e => setComposeTo(e.target.value)} className="flex-1 focus:outline-none text-sm text-gray-800" placeholder="recipient@example.com" />
+                </div>
+                
+                <div className="flex border-b border-gray-100 pb-2 items-center">
+                  <span className="text-sm text-gray-500 w-20">Subject</span>
+                  <input type="text" value={composeSubject} onChange={e => setComposeSubject(e.target.value)} className="flex-1 focus:outline-none text-sm text-gray-800" placeholder="Message Subject" />
+                </div>
+
+                <div className="flex border-b border-gray-100 pb-2 items-center">
+                  <span className="text-sm text-gray-500 w-20">Translate To</span>
+                  <select
+                    value={composeLang}
+                    onChange={e => setComposeLang(e.target.value)}
+                    className="text-sm border border-gray-200 rounded-md px-2 py-1 bg-gray-50 focus:outline-none"
+                  >
+                    {LANGUAGE_OPTIONS.map(language => (
+                      <option key={language.code} value={language.code}>
+                         {language.name} ({language.nativeName})
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-xs text-gray-400 ml-3">The email will be auto-translated to this language before sending.</span>
+                </div>
+
+                <textarea
+                  value={composeBody}
+                  onChange={e => setComposeBody(e.target.value)}
+                  className="w-full flex-1 p-0 mt-4 text-sm text-gray-800 resize-none focus:outline-none h-64"
+                  placeholder="Type your message here..."
+                ></textarea>
+                
+                <div className="mt-auto pt-4 flex gap-3 pb-6">
+                  <button
+                    onClick={handleSendCompose}
+                    disabled={composeLoading || !composeTo.trim() || !composeBody.trim()}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-md shadow-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center gap-2 text-sm"
+                  >
+                    {composeLoading ? <><Spinner /> Sending...</> : 'Send & Translate'}
+                  </button>
+                  <button
+                    onClick={() => setComposing(false)}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm font-medium transition-colors"
+                  >
+                    Discard
+                  </button>
+                </div>
+              </div>
+            </div>
           ) : (
-            <div className="max-w-3xl mx-auto">
+            <div className="max-w-3xl mx-auto pb-10">
               {/* Email header */}
               <h1 className="text-xl md:text-2xl font-normal text-gray-800 mb-6 leading-snug">{selected.subject}</h1>
               <div className="flex items-start gap-3 mb-6 text-sm text-gray-500">

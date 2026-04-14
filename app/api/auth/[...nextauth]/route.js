@@ -1,14 +1,17 @@
 import NextAuth from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
-import { PrismaAdapter } from "@auth/prisma-adapter"
-import { prisma } from "@/lib/prisma"
+
+export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
 
 export const authOptions = {
-  adapter: PrismaAdapter(prisma),
+  session: {
+    strategy: "jwt",
+  },
   providers: [
     GoogleProvider({
-      clientId: process.env.GMAIL_CLIENT_ID,
-      clientSecret: process.env.GMAIL_CLIENT_SECRET,
+      clientId: process.env.GMAIL_CLIENT_ID ?? "",
+      clientSecret: process.env.GMAIL_CLIENT_SECRET ?? "",
       authorization: {
         params: {
           prompt: "consent",

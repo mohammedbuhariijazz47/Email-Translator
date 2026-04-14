@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { translateEmail } from '@/lib/translator'
 
+export const runtime = 'nodejs'
+
 export async function POST(request) {
   try {
     const { text, targetLang = 'English' } = await request.json()

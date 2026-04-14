@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { translateReply } from '@/lib/translator'
 import { sendReply } from '@/lib/gmail'
 
+export const runtime = 'nodejs'
+
 export async function POST(request) {
   try {
     const {

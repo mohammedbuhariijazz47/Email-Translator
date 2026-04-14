@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { grammarCheckText } from '@/lib/translator'
 
+export const runtime = 'nodejs'
+
 export async function POST(request) {
   try {
     const { text } = await request.json()

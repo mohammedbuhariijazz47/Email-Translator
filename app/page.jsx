@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession, signIn, signOut } from 'next-auth/react'
-
-const LANGUAGES = ['English','Spanish','French','German','Japanese','Arabic','Hindi','Tamil','Korean','Chinese']
+import { LANGUAGE_OPTIONS, getLanguageDisplayName } from '@/lib/languages'
 
 function getInitials(from) {
   if (!from) return '??'
@@ -91,7 +90,7 @@ export default function Home() {
     if (!replyText.trim() || !session?.accessToken) return
     setReplyLoading(true)
     try {
-      const detectedLang = translations[email.id]?.detectedLang || 'English'
+      const detectedLang = translations[email.id]?.detectedLangCode || translations[email.id]?.detectedLang || 'en'
       const matchEmail = email.from.match(/<(.+)>/)
       const toEmail = matchEmail ? matchEmail[1] : email.from
 
@@ -170,7 +169,11 @@ export default function Home() {
               onChange={e => setPrefLang(e.target.value)}
               className="text-sm border border-gray-300 rounded-md px-2 py-1 bg-white focus:outline-none"
             >
-              {LANGUAGES.map(l => <option key={l}>{l}</option>)}
+              {LANGUAGE_OPTIONS.map(language => (
+                <option key={language.code} value={language.name}>
+                  {language.name} ({language.nativeName})
+                </option>
+              ))}
             </select>
           </div>
           <button 
@@ -266,7 +269,9 @@ export default function Home() {
                       Translated to {prefLang}
                     </span>
                     <span className="text-xs text-[#0284c7] font-medium hidden sm:inline">
-                      Auto-detected Language ~ {translations[selected.id].detectedLang}
+                      Auto-detected Language ~ {getLanguageDisplayName(
+                        translations[selected.id].detectedLangCode || translations[selected.id].detectedLang
+                      )}
                     </span>
                   </div>
                   <div className="p-5">
@@ -306,7 +311,7 @@ export default function Home() {
                     <textarea
                       value={replyText}
                       onChange={e => setReplyText(e.target.value)}
-                      placeholder={`Draft your reply in ${prefLang}. It will be automatically translated to their language and sent...`}
+                      placeholder={`Draft your reply in ${prefLang}. It will be automatically translated to the recipient's detected language and sent...`}
                       className="w-full p-5 text-sm text-gray-800 resize-none focus:outline-none min-h-[140px]"
                     />
                     <div className="px-5 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-end gap-3">

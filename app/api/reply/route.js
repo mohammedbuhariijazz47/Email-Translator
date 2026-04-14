@@ -22,14 +22,14 @@ export async function POST(request) {
     }
 
     // Translate the reply
-    const { translated } = await translateReply(replyText, recipientLang)
+    const result = await translateReply(replyText, recipientLang)
 
     // Optionally send via Gmail
     if (sendAfterTranslate && accessToken && to) {
-      await sendReply({ accessToken, to, subject, body: translated, threadId })
+      await sendReply({ accessToken, to, subject, body: result.translated, threadId })
     }
 
-    return NextResponse.json({ translated, sent: sendAfterTranslate })
+    return NextResponse.json({ ...result, sent: sendAfterTranslate })
 
   } catch (err) {
     console.error('[/api/reply]', err)

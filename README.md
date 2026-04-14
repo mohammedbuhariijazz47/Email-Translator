@@ -34,15 +34,18 @@ Edit `.env.local`:
 | `ANTHROPIC_API_KEY` | https://console.anthropic.com → API Keys |
 | `GMAIL_CLIENT_ID` | Google Cloud Console → APIs → Gmail API → Credentials |
 | `GMAIL_CLIENT_SECRET` | Same credentials page |
-| `GMAIL_REDIRECT_URI` | Set to `http://localhost:3000/api/auth/callback` |
 | `NEXTAUTH_SECRET` | Run: `openssl rand -base64 32` |
+| `NEXTAUTH_URL` | App base URL, e.g. `http://localhost:3000` locally or your Vercel URL in production |
 
 ### 3. Enable Gmail API
 1. Go to https://console.cloud.google.com
 2. Create a project → Enable **Gmail API**
 3. Create OAuth 2.0 credentials (Web Application)
 4. Add `http://localhost:3000` to Authorized Origins
-5. Add `http://localhost:3000/api/auth/callback` to Redirect URIs
+5. Add `http://localhost:3000/api/auth/callback/google` to Redirect URIs
+6. For production, add your deployed site origin and callback too:
+   - Origin: `https://email-translator-umkh-hlq71qwx0-ijas.vercel.app`
+   - Redirect URI: `https://email-translator-umkh-hlq71qwx0-ijas.vercel.app/api/auth/callback/google`
 
 ### 4. Run
 ```bash

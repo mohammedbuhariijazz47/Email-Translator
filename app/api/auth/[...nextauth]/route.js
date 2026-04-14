@@ -8,6 +8,9 @@ export const authOptions = {
   session: {
     strategy: "jwt",
   },
+  pages: {
+    signIn: "/",
+  },
   providers: [
     GoogleProvider({
       clientId: process.env.GMAIL_CLIENT_ID ?? "",

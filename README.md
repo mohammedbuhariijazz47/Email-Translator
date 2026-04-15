@@ -44,8 +44,8 @@ Edit `.env.local`:
 4. Add `http://localhost:3000` to Authorized Origins
 5. Add `http://localhost:3000/api/auth/callback/google` to Redirect URIs
 6. For production, add your deployed site origin and callback too:
-   - Origin: `https://email-translator-umkh-hlq71qwx0-ijas.vercel.app`
-   - Redirect URI: `https://email-translator-umkh-hlq71qwx0-ijas.vercel.app/api/auth/callback/google`
+   - Origin: `https://email-translator-ijas.vercel.app`
+   - Redirect URI: `https://email-translator-ijas.vercel.app/api/auth/callback/google`
 
 ### 4. Run
 ```bash

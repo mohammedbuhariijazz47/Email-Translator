@@ -80,6 +80,13 @@ export default function Home() {
     fetchEmails()
   }, [status, session, category])
 
+  useEffect(() => {
+    if (session?.error === 'RefreshAccessTokenError') {
+      setEmails([])
+      setEmailsError('Your Google session expired. Please sign in again to load your Gmail messages.')
+    }
+  }, [session])
+
   async function handleTranslate(email) {
     if (translations[email.id]) return
     setLoadingId(email.id)
@@ -301,8 +308,16 @@ export default function Home() {
           
           <div className="overflow-y-auto flex-1 pb-4">
             {emailsError && (
-              <div className="p-4 text-xs text-red-500 bg-red-50 border-b border-red-100">
-                {emailsError}
+              <div className="p-4 text-xs text-red-500 bg-red-50 border-b border-red-100 space-y-3">
+                <div>{emailsError}</div>
+                {session?.error === 'RefreshAccessTokenError' && (
+                  <button
+                    onClick={() => signIn('google', { prompt: 'consent', access_type: 'offline' })}
+                    className="inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+                  >
+                    Reconnect Google
+                  </button>
+                )}
               </div>
             )}
             {emails.length === 0 && !loadingEmails && !emailsError && (
